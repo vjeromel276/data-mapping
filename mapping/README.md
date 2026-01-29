@@ -21,6 +21,8 @@ Notes:
 - Set `OLLAMA_MODEL` and `OLLAMA_URL` env vars to avoid passing flags each time.
 - Output workbook replaces `profile` with `mapping` in the filename.
 - ES fields with `Null %` > 90 are excluded from candidates by default (override with `--es-null-threshold`).
+- Reference fields are ignored by default (use `--include-reference` to override).
+- BBF fields with `Null %` <= 0 are skipped by default (override with `--skip-bbf-null-at-or-below`).
 
 ## Column legend (mappings sheet)
 - `BBF Field API`: Target BBF field API name.

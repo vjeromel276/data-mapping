@@ -47,7 +47,8 @@
   "field_filters": {
     "exclude_types": [
       "longtextarea",
-      "richtextarea"
+      "richtextarea",
+      "reference"
     ],
     "exclude_calculated": false,
     "include_calculated_types": [

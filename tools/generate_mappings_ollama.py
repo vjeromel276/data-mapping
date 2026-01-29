@@ -133,9 +133,12 @@ def top_candidates(
     bbf: FieldRow,
     limit: int,
     es_null_threshold: Optional[float],
+    ignore_reference: bool,
 ) -> List[FieldRow]:
     scored = []
     for es in es_fields:
+        if ignore_reference and str(es.ftype).lower() == "reference":
+            continue
         es_null = null_pct_value(es.null_pct)
         if es_null_threshold is not None and es_null is not None and es_null > es_null_threshold:
             continue
@@ -223,10 +226,22 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=0.2, help="LLM temperature")
     parser.add_argument("--limit-bbf", type=int, default=None, help="Limit BBF fields")
     parser.add_argument(
+        "--skip-bbf-null-at-or-below",
+        type=float,
+        default=0.0,
+        help="Skip BBF fields with Null % at or below this value (default: 0.0)",
+    )
+    parser.add_argument(
         "--es-null-threshold",
         type=float,
         default=90.0,
         help="Exclude ES fields with Null % above this threshold (default: 90)",
+    )
+    parser.add_argument(
+        "--include-reference",
+        action="store_true",
+        default=False,
+        help="Include reference fields for mapping (default: false)",
     )
 
     args = parser.parse_args()
@@ -242,21 +257,41 @@ def main() -> None:
     for idx, bbf in enumerate(bbf_fields, 1):
         if args.limit_bbf and idx > args.limit_bbf:
             break
+        bbf_null = null_pct_value(bbf.null_pct)
+        if (
+            bbf_null is not None
+            and args.skip_bbf_null_at_or_below is not None
+            and bbf_null <= args.skip_bbf_null_at_or_below
+        ):
+            continue
 
-        candidates = top_candidates(
-            es_fields, bbf, args.candidate_limit, args.es_null_threshold
-        )
-        if not candidates:
+        ignore_reference = not args.include_reference
+        if ignore_reference and str(bbf.ftype).lower() == "reference":
             parsed = {
                 "best_match": "NO_MATCH",
                 "confidence": 0,
                 "transform": "",
-                "reasoning": "No ES candidates after null% filter",
+                "reasoning": "BBF reference field ignored",
             }
         else:
-            prompt = build_prompt(bbf, candidates)
-            response = call_ollama(prompt, args.model, args.ollama_url, args.temperature)
-            parsed = parse_json_response(response)
+            candidates = top_candidates(
+                es_fields,
+                bbf,
+                args.candidate_limit,
+                args.es_null_threshold,
+                ignore_reference,
+            )
+            if not candidates:
+                parsed = {
+                    "best_match": "NO_MATCH",
+                    "confidence": 0,
+                    "transform": "",
+                    "reasoning": "No ES candidates after null%/reference filter",
+                }
+            else:
+                prompt = build_prompt(bbf, candidates)
+                response = call_ollama(prompt, args.model, args.ollama_url, args.temperature)
+                parsed = parse_json_response(response)
 
         best = parsed.get("best_match", "NO_MATCH")
         confidence = parsed.get("confidence", 0)
