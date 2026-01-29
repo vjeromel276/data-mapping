@@ -6,7 +6,7 @@ import re
 import sys
 from collections import Counter
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 from simple_salesforce import Salesforce  # type: ignore
@@ -173,12 +173,15 @@ def filter_fields(
     fields: List[Dict[str, Any]],
     filters: Dict[str, Any],
     excluded_by_object: List[str],
+    org_filters: Optional[Dict[str, Any]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     include = []
     excluded = []
 
     exclude_types = set(filters.get("exclude_types", []))
-    exclude_name_patterns = filters.get("exclude_field_name_patterns", [])
+    exclude_name_patterns = list(filters.get("exclude_field_name_patterns", []))
+    if org_filters:
+        exclude_name_patterns.extend(org_filters.get("exclude_field_name_patterns", []))
     exclude_system = set(filters.get("exclude_system_fields", []))
     exclude_calculated = bool(filters.get("exclude_calculated", False))
     include_calculated_types = set(filters.get("include_calculated_types", []))
@@ -434,11 +437,18 @@ def main() -> None:
             cfg.get("exclude_fields_by_object", {}).get("bbf", {}).get(bbf_obj, [])
         )
 
+        org_filters = cfg.get("field_filters_by_org", {})
         es_included, es_excluded = filter_fields(
-            es_fields, cfg.get("field_filters", {}), es_excluded_list
+            es_fields,
+            cfg.get("field_filters", {}),
+            es_excluded_list,
+            org_filters.get("es"),
         )
         bbf_included, bbf_excluded = filter_fields(
-            bbf_fields, cfg.get("field_filters", {}), bbf_excluded_list
+            bbf_fields,
+            cfg.get("field_filters", {}),
+            bbf_excluded_list,
+            org_filters.get("bbf"),
         )
 
         sample_size = (

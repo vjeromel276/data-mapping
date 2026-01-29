@@ -22,7 +22,7 @@ Notes:
 - Output workbook replaces `profile` with `mapping` in the filename.
 - ES fields with `Null %` > 90 are excluded from candidates by default (override with `--es-null-threshold`).
 - Reference fields are ignored by default (use `--include-reference` to override).
-- BBF fields with `Null %` <= 0 are skipped by default (override with `--skip-bbf-null-at-or-below`).
+- BBF fields with `Null %` <= 0 are skipped by default **except booleans** (override with `--skip-bbf-null-at-or-below`).
 - Fields matching geocode name patterns are skipped by default (use `--exclude-name-pattern` to override).
 
 ## Column legend (mappings sheet)

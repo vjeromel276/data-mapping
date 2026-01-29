@@ -325,10 +325,12 @@ def main() -> None:
             skip_reasons[bbf.api] = "Skipped: name pattern match"
             continue
         bbf_null = null_pct_value(bbf.null_pct)
+        is_boolean = str(bbf.ftype).lower() == "boolean"
         if (
             bbf_null is not None
             and args.skip_bbf_null_at_or_below is not None
             and bbf_null <= args.skip_bbf_null_at_or_below
+            and not is_boolean
         ):
             skip_reasons[bbf.api] = (
                 f"Skipped: BBF Null % <= {args.skip_bbf_null_at_or_below}"

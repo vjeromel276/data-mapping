@@ -75,6 +75,13 @@
       "LastReferencedDate"
     ]
   },
+  "field_filters_by_org": {
+    "bbf": {
+      "exclude_field_name_patterns": [
+        "(?i)^proposalmanager__"
+      ]
+    }
+  },
   "exclude_fields_by_object": {
     "es": {
       "Account": [
