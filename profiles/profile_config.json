@@ -51,6 +51,11 @@
       "reference",
       "textarea"
     ],
+    "exclude_field_name_patterns": [
+      "(?i).*GeocodeAccuracy$",
+      "(?i)^(Billing|Shipping|Mailing|Other)?Latitude$",
+      "(?i)^(Billing|Shipping|Mailing|Other)?Longitude$"
+    ],
     "exclude_calculated": false,
     "include_calculated_types": [
       "boolean",

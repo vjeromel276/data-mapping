@@ -39,3 +39,4 @@ python3 tools/profile_subset.py \
 - Subset is order-driven and BAN-driven (see `profile_config.json`)
 - Fields excluded from profiling include long/rich text, system fields, and fields already populated in the initial move (configurable)
 - Formula fields are included only if their return type is `boolean` or `string` (configurable)
+- Geocode fields (Latitude/Longitude/GeocodeAccuracy) are excluded via name patterns in the config

@@ -11,6 +11,12 @@ import pandas as pd
 import urllib.request
 
 
+DEFAULT_EXCLUDE_NAME_PATTERNS = [
+    r"(?i).*GeocodeAccuracy$",
+    r"(?i)^(Billing|Shipping|Mailing|Other)?Latitude$",
+    r"(?i)^(Billing|Shipping|Mailing|Other)?Longitude$",
+]
+
 @dataclass
 class FieldRow:
     api: str
@@ -128,15 +134,45 @@ def null_pct_value(v: Any) -> Optional[float]:
         return None
 
 
+def name_matches_patterns(name: str, patterns: List[str]) -> bool:
+    for pattern in patterns:
+        try:
+            if re.search(pattern, name or ""):
+                return True
+        except re.error:
+            continue
+    return False
+
+
+def split_values(raw: Any) -> List[str]:
+    if raw is None:
+        return []
+    text = str(raw).strip()
+    if not text or text.lower() == "nan":
+        return []
+    parts = [p.strip() for p in text.split(";")]
+    return [p for p in parts if p]
+
+
+def parse_top_values(raw: Any) -> List[str]:
+    values = []
+    for item in split_values(raw):
+        values.append(re.sub(r"\s*\\(\\d+\\)$", "", item).strip())
+    return [v for v in values if v]
+
+
 def top_candidates(
     es_fields: List[FieldRow],
     bbf: FieldRow,
     limit: int,
     es_null_threshold: Optional[float],
     ignore_reference: bool,
+    exclude_name_patterns: List[str],
 ) -> List[FieldRow]:
     scored = []
     for es in es_fields:
+        if exclude_name_patterns and name_matches_patterns(es.api, exclude_name_patterns):
+            continue
         if ignore_reference and str(es.ftype).lower() == "reference":
             continue
         es_null = null_pct_value(es.null_pct)
@@ -212,6 +248,23 @@ def find_es_field(es_fields: List[FieldRow], api_name: str) -> Optional[FieldRow
     return None
 
 
+def picklist_required(bbf: FieldRow) -> bool:
+    return str(bbf.ftype).lower() in ("picklist", "multipicklist")
+
+
+def to_bool(value: Any) -> Optional[bool]:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in ("true", "t", "yes", "y", "1"):
+        return True
+    if text in ("false", "f", "no", "n", "0"):
+        return False
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate ES→BBF mappings using Ollama.")
     parser.add_argument("--profile", required=True, help="Profile workbook (.xlsx)")
@@ -243,6 +296,12 @@ def main() -> None:
         default=False,
         help="Include reference fields for mapping (default: false)",
     )
+    parser.add_argument(
+        "--exclude-name-pattern",
+        action="append",
+        default=None,
+        help="Regex pattern for field API names to exclude (repeatable)",
+    )
 
     args = parser.parse_args()
     if not args.model:
@@ -253,16 +312,27 @@ def main() -> None:
     os.makedirs(args.out_dir, exist_ok=True)
 
     results = []
+    skip_reasons: Dict[str, str] = {}
+
+    exclude_name_patterns = (
+        args.exclude_name_pattern if args.exclude_name_pattern else DEFAULT_EXCLUDE_NAME_PATTERNS
+    )
 
     for idx, bbf in enumerate(bbf_fields, 1):
         if args.limit_bbf and idx > args.limit_bbf:
             break
+        if exclude_name_patterns and name_matches_patterns(bbf.api, exclude_name_patterns):
+            skip_reasons[bbf.api] = "Skipped: name pattern match"
+            continue
         bbf_null = null_pct_value(bbf.null_pct)
         if (
             bbf_null is not None
             and args.skip_bbf_null_at_or_below is not None
             and bbf_null <= args.skip_bbf_null_at_or_below
         ):
+            skip_reasons[bbf.api] = (
+                f"Skipped: BBF Null % <= {args.skip_bbf_null_at_or_below}"
+            )
             continue
 
         ignore_reference = not args.include_reference
@@ -273,6 +343,7 @@ def main() -> None:
                 "transform": "",
                 "reasoning": "BBF reference field ignored",
             }
+            skip_reasons[bbf.api] = "Ignored: BBF reference field"
         else:
             candidates = top_candidates(
                 es_fields,
@@ -280,6 +351,7 @@ def main() -> None:
                 args.candidate_limit,
                 args.es_null_threshold,
                 ignore_reference,
+                exclude_name_patterns,
             )
             if not candidates:
                 parsed = {
@@ -300,6 +372,14 @@ def main() -> None:
 
         es_match = find_es_field(es_fields, best)
 
+        auto_decision = ""
+        try:
+            conf_val = float(confidence)
+        except Exception:
+            conf_val = 0
+        if best != "NO_MATCH" and conf_val >= 80 and (not str(transform).strip()):
+            auto_decision = "Yes (auto)"
+
         results.append(
             {
                 "BBF Field API": bbf.api,
@@ -319,6 +399,10 @@ def main() -> None:
                 "Confidence": confidence,
                 "Transform": transform,
                 "Reasoning": reasoning,
+                "Picklist Mapping": "REQUIRED" if picklist_required(bbf) else "",
+                "Decision": auto_decision,
+                "Owner": "",
+                "Notes": "auto>=80_no_transform" if auto_decision else "",
             }
         )
 
@@ -326,9 +410,137 @@ def main() -> None:
     out_path = os.path.join(args.out_dir, out_name)
 
     summary_rows = [{"Metric": k, "Value": v} for k, v in summary.items()]
+
+    # Build picklist mapping template
+    picklist_rows = []
+    for row in results:
+        if row.get("Picklist Mapping") != "REQUIRED":
+            continue
+        bbf_values = split_values(row.get("BBF Picklist Values", ""))
+        if not bbf_values:
+            continue
+        es_values = split_values(row.get("ES Picklist Values", ""))
+        es_value_source = "picklist"
+        if not es_values:
+            es_values = parse_top_values(row.get("ES Top Values", "")) or split_values(
+                row.get("ES Sample Values", "")
+            )
+            es_value_source = "sample"
+        if not es_values:
+            continue
+        bbf_index = {v.strip().lower(): v for v in bbf_values}
+        seen = set()
+        for es_val in es_values:
+            norm = es_val.strip().lower()
+            if norm in seen:
+                continue
+            seen.add(norm)
+            bbf_match = bbf_index.get(norm, "")
+            match_type = "exact" if bbf_match else ""
+            status = "auto" if bbf_match else "needs_review"
+            picklist_rows.append(
+                {
+                    "BBF Field API": row.get("BBF Field API"),
+                    "ES Field API": row.get("ES Field API"),
+                    "ES Value": es_val,
+                    "BBF Value": bbf_match,
+                    "Match Type": match_type,
+                    "ES Value Source": es_value_source,
+                    "Status": status,
+                    "Notes": "",
+                }
+            )
+
+    # Required fields check
+    results_by_bbf = {r["BBF Field API"]: r for r in results}
+    required_rows = []
+    for bbf in bbf_fields:
+        nillable = to_bool(bbf.nillable)
+        createable = to_bool(bbf.createable)
+        if nillable is not False or createable is not True:
+            continue
+        mapped = results_by_bbf.get(bbf.api)
+        required_rows.append(
+            {
+                "BBF Field API": bbf.api,
+                "BBF Label": bbf.label,
+                "BBF Type": bbf.ftype,
+                "Nillable": bbf.nillable,
+                "Createable": bbf.createable,
+                "BBF Null %": bbf.null_pct,
+                "Has Mapping": "Yes" if mapped else "No",
+                "ES Field API": mapped.get("ES Field API") if mapped else "",
+                "Decision": mapped.get("Decision") if mapped else "",
+                "Skip Reason": skip_reasons.get(bbf.api, ""),
+                "Notes": "",
+            }
+        )
+
+    transform_library_rows = [
+        {
+            "Transform": "trim",
+            "Description": "Trim leading/trailing whitespace",
+            "Example": "trim(value)",
+            "Applies To": "string",
+        },
+        {
+            "Transform": "upper",
+            "Description": "Uppercase text",
+            "Example": "upper(value)",
+            "Applies To": "string",
+        },
+        {
+            "Transform": "lower",
+            "Description": "Lowercase text",
+            "Example": "lower(value)",
+            "Applies To": "string",
+        },
+        {
+            "Transform": "concat",
+            "Description": "Concatenate fields with separator",
+            "Example": "concat(A, ' ', B)",
+            "Applies To": "string",
+        },
+        {
+            "Transform": "date_format",
+            "Description": "Format dates to target pattern",
+            "Example": "date_format(value, 'YYYY-MM-DD')",
+            "Applies To": "date/datetime",
+        },
+        {
+            "Transform": "boolean_map",
+            "Description": "Map truthy strings to boolean",
+            "Example": "map({'Y':True,'N':False})",
+            "Applies To": "boolean",
+        },
+        {
+            "Transform": "picklist_map",
+            "Description": "Map picklist values using mapping table",
+            "Example": "picklist_map(value)",
+            "Applies To": "picklist",
+        },
+        {
+            "Transform": "truncate",
+            "Description": "Truncate string to max length",
+            "Example": "truncate(value, 80)",
+            "Applies To": "string",
+        },
+    ]
+
     with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
         pd.DataFrame(summary_rows).to_excel(writer, sheet_name="summary", index=False)
         pd.DataFrame(results).to_excel(writer, sheet_name="mappings", index=False)
+        if picklist_rows:
+            pd.DataFrame(picklist_rows).to_excel(
+                writer, sheet_name="picklist_mappings", index=False
+            )
+        pd.DataFrame(transform_library_rows).to_excel(
+            writer, sheet_name="transform_library", index=False
+        )
+        if required_rows:
+            pd.DataFrame(required_rows).to_excel(
+                writer, sheet_name="required_fields_check", index=False
+            )
 
     print(f"Wrote {out_path}")
 

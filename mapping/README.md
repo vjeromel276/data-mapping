@@ -23,6 +23,7 @@ Notes:
 - ES fields with `Null %` > 90 are excluded from candidates by default (override with `--es-null-threshold`).
 - Reference fields are ignored by default (use `--include-reference` to override).
 - BBF fields with `Null %` <= 0 are skipped by default (override with `--skip-bbf-null-at-or-below`).
+- Fields matching geocode name patterns are skipped by default (use `--exclude-name-pattern` to override).
 
 ## Column legend (mappings sheet)
 - `BBF Field API`: Target BBF field API name.
@@ -42,3 +43,24 @@ Notes:
 - `Confidence`: LLM confidence score (0–100).
 - `Transform`: Suggested transform or mapping logic (blank if direct).
 - `Reasoning`: Short explanation for why the match was chosen.
+- `Picklist Mapping`: `REQUIRED` when BBF field is a picklist/multipicklist.
+- `Decision`: Accept/Reject/Review (manual decision).
+- `Decision`: Auto-marked as `Yes (auto)` when confidence >= 80 and no transform needed.
+- `Owner`: Person responsible for the decision.
+- `Notes`: Freeform notes.
+
+## picklist_mappings sheet (template)
+- `BBF Field API`: Target picklist field.
+- `ES Field API`: Source field.
+- `ES Value`: ES picklist value (or observed sample).
+- `BBF Value`: BBF picklist value (fill in).
+- `Match Type`: `exact` when auto-matched (case-insensitive).
+- `ES Value Source`: `picklist` or `sample`.
+- `Status`: `auto` or `needs_review`.
+- `Notes`: Freeform notes.
+
+## transform_library sheet
+- Pre-seeded transform patterns for reuse.
+
+## required_fields_check sheet
+- Lists required BBF fields (Nillable = false, Createable = true), and whether a mapping exists.

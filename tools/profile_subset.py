@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 from collections import Counter
 from datetime import datetime
@@ -177,6 +178,7 @@ def filter_fields(
     excluded = []
 
     exclude_types = set(filters.get("exclude_types", []))
+    exclude_name_patterns = filters.get("exclude_field_name_patterns", [])
     exclude_system = set(filters.get("exclude_system_fields", []))
     exclude_calculated = bool(filters.get("exclude_calculated", False))
     include_calculated_types = set(filters.get("include_calculated_types", []))
@@ -187,6 +189,14 @@ def filter_fields(
         name = f.get("name")
         if not f.get("queryable", True):
             reasons.append("not_queryable")
+        for pattern in exclude_name_patterns:
+            try:
+                if re.search(pattern, name or ""):
+                    reasons.append(f"name_pattern:{pattern}")
+                    break
+            except re.error:
+                reasons.append("name_pattern:invalid_regex")
+                break
         if name in exclude_system:
             reasons.append("system_field")
         if name in excluded_by_object:
