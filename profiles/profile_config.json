@@ -48,7 +48,8 @@
     "exclude_types": [
       "longtextarea",
       "richtextarea",
-      "reference"
+      "reference",
+      "textarea"
     ],
     "exclude_calculated": false,
     "include_calculated_types": [
