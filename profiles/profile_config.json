@@ -1,0 +1,204 @@
+{
+  "object_pairs": [
+    {
+      "es": "Account",
+      "bbf": "Account"
+    },
+    {
+      "es": "Contact",
+      "bbf": "Contact"
+    },
+    {
+      "es": "Billing_Invoice__c",
+      "bbf": "BAN__c"
+    },
+    {
+      "es": "Address__c",
+      "bbf": "Location__c"
+    },
+    {
+      "es": "Order",
+      "bbf": "Service__c"
+    },
+    {
+      "es": "OrderItem",
+      "bbf": "Service_Charge__c"
+    },
+    {
+      "es": "Off_Net__c",
+      "bbf": "Off_Net__c"
+    }
+  ],
+  "subset": {
+    "active_order_statuses": [
+      "Activated",
+      "Suspended (Late Payment)",
+      "Disconnect in Progress"
+    ],
+    "exclude_project_group_like": "PA MARKET DECOM",
+    "service_order_record_type": "Service Order Agreement",
+    "require_bbf_ban_flag": true,
+    "account_type_filter": "Customer"
+  },
+  "sampling": {
+    "default_sample_size": 500,
+    "per_object": {}
+  },
+  "field_filters": {
+    "exclude_types": [
+      "longtextarea",
+      "richtextarea"
+    ],
+    "exclude_calculated": false,
+    "include_calculated_types": [
+      "boolean",
+      "string"
+    ],
+    "exclude_autonumber": true,
+    "exclude_system_fields": [
+      "Id",
+      "IsDeleted",
+      "CreatedDate",
+      "CreatedById",
+      "LastModifiedDate",
+      "LastModifiedById",
+      "SystemModstamp",
+      "LastActivityDate",
+      "LastViewedDate",
+      "LastReferencedDate"
+    ]
+  },
+  "exclude_fields_by_object": {
+    "es": {
+      "Account": [
+        "BBF_New_Id__c"
+      ],
+      "Contact": [
+        "BBF_New_Id__c"
+      ],
+      "Billing_Invoice__c": [
+        "BBF_New_Id__c"
+      ],
+      "Address__c": [
+        "BBF_New_Id__c"
+      ],
+      "Order": [
+        "BBF_New_Id__c"
+      ],
+      "OrderItem": [
+        "BBF_New_Id__c"
+      ],
+      "Off_Net__c": [
+        "BBF_New_Id__c"
+      ]
+    },
+    "bbf": {
+      "Account": [
+        "ES_Legacy_ID__c",
+        "OwnerId",
+        "Name",
+        "Type",
+        "BillingStreet",
+        "BillingCity",
+        "BillingState",
+        "BillingPostalCode",
+        "BillingCountry",
+        "Phone",
+        "Website",
+        "Industry",
+        "AnnualRevenue",
+        "NumberOfEmployees",
+        "Description",
+        "ShippingStreet",
+        "ShippingCity",
+        "ShippingState",
+        "ShippingPostalCode",
+        "ShippingCountry",
+        "AccountNumber",
+        "Site",
+        "TickerSymbol",
+        "Ownership",
+        "Rating",
+        "Sic",
+        "SicDesc"
+      ],
+      "Contact": [
+        "ES_Legacy_ID__c",
+        "OwnerId",
+        "AccountId",
+        "FirstName",
+        "LastName",
+        "Email",
+        "Phone",
+        "Title",
+        "MailingStreet",
+        "MailingCity",
+        "MailingState",
+        "MailingPostalCode",
+        "MailingCountry",
+        "OtherStreet",
+        "OtherCity",
+        "OtherState",
+        "OtherPostalCode",
+        "OtherCountry",
+        "MobilePhone",
+        "HomePhone",
+        "Fax",
+        "Department",
+        "Description",
+        "Birthdate",
+        "AssistantName",
+        "AssistantPhone",
+        "LeadSource"
+      ],
+      "BAN__c": [
+        "ES_Legacy_ID__c",
+        "Account__c",
+        "Name",
+        "Billing_Street__c",
+        "Billing_City__c",
+        "Billing_State__c",
+        "Billing_PostalCode__c",
+        "Billing_Company_Name__c",
+        "BAN_Description__c",
+        "General_Description__c",
+        "Payment_Terms__c",
+        "busUnit__c"
+      ],
+      "Location__c": [
+        "ES_Legacy_ID__c",
+        "OwnerId",
+        "businessUnit__c",
+        "Name",
+        "Name_Is_Set_Manually__c",
+        "City__c",
+        "State__c",
+        "County__c",
+        "PostalCode__c",
+        "Street__c",
+        "Full_Address__c",
+        "CLLICode__c"
+      ],
+      "Service__c": [
+        "ES_Legacy_ID__c",
+        "Billing_Account_Number__c",
+        "A_Location__c",
+        "Z_Location__c",
+        "Account__c"
+      ],
+      "Service_Charge__c": [
+        "ES_Legacy_ID__c",
+        "Service__c",
+        "Product_Simple__c",
+        "Service_Type_Charge__c"
+      ],
+      "Off_Net__c": [
+        "ES_Legacy_ID__c",
+        "OwnerId",
+        "Service__c",
+        "AA_Location__c",
+        "ZZ_Location__c"
+      ]
+    }
+  }
+}
